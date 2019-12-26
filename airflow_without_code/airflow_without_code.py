@@ -163,10 +163,8 @@ def find_etls():
 	return etl_dags
 
 def create_etl_dags():		
-	index=0
 	etls_to_create = find_etls()
-	for etl_item in etls_to_create:
+	for index, etl_item in enumerate(etls_to_create):
 		create_dag(default_args, etl_item[0], etl_item[1], index)
-		index += 1
 
 create_etl_dags()
