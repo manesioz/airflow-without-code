@@ -16,7 +16,7 @@ Given the directory:
     └── ...
 
 
-Now you can easily manage simple `DAGs` for both `sql_script_1.sql` and `sql_script_2.sql` by including the headers: 
+Now you can easily manage simple `DAGs` for both `sql_script_1.sql` and `sql_script_2.sql` by including the configurable header: 
 
 ```sql
 --{"schedule_interval": "@weekly", "author": "Zachary Manesiotis", "catchup": true, "destination_table": "project.dataset.table"} 
@@ -27,3 +27,4 @@ with fake_sql as (
 )
 ...
 ```
+in each of the `SQL` files. 
