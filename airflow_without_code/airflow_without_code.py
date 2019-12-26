@@ -88,7 +88,6 @@ def create_dag(default_args, sql_dict, file_name, index):
 	interval = 2
 	hour = hour + index // 60 
 	minute = minute + ((index*interval)%60)
-	DEFAULT_VERSION = 1
 	
 	default_arguments = apply_defaults(default_args, sql_dict)
 	
@@ -149,7 +148,7 @@ def find_etls():
 	"""
 	from os import listdir
 	from os.path import isfile, join, abspath
-	folderPath = abspath("/etc/airflow/dags/ETL")
+	folderPath = abspath("path/to/etl/dir")
 	onlyfiles = [f for f in listdir(folderPath) if isfile(join(folderPath, f))]
 	etl_dags = []
 
@@ -159,7 +158,7 @@ def find_etls():
 			if(first_line.startswith('--')):
 				new_dictionary = clean_dict(first_line)
 				if new_dictionary:
-					etl_dags.append((new_dictionary,file))		
+					etl_dags.append((new_dictionary, file))		
 	return etl_dags
 
 def create_etl_dags():		
