@@ -6,48 +6,52 @@ from airflow.contrib.operators.bigquery_check_operator import BigQueryCheckOpera
 from airflow.operators.python_operator import PythonOperator
 from datetime import datetime, timedelta
 
-from geotab_operators.airflow_lineage_operators import DagRunTaskInstanceRelationshipOperator
+from json import JSONDecodeError, loads
 
 default_args = {
 		'owner': 'airflow',
 		'depends_on_past': False,
 		'start_date': datetime(2018, 4, 5),
-		'email': ['bi-jobs@geotab.com'],
+		'email': ['user@email.com'],
 		'email_on_failure': True,
 		'email_on_retry': False,
 		'retries': 3,
-		'retry_delay': timedelta(minutes=5),
-		# 'queue': 'bash_queue',
-		# 'pool': 'backfill',
-		# 'priority_weight': 10,
-		# 'end_date': datetime(2016, 1, 1),
+		'retry_delay': timedelta(minutes=1)
 }
 
 CONNECTION_ID = 'DATABASE_CONN_ID'
 
 def clean_dict(dict_string):
-	"""Strips the leading dashes from the dictionary text and converts the string to a dictionary object
+    """Strips the leading dashes from the commented first line and converts it to a dictionary object
 
-						dict_string: first line of the SQL file which contains a dictionary object									
-	returns: A dictionary object
-	"""
-	new_dict = dict_string.replace('--','').replace('\n','')
-	try:
-		dict = eval(new_dict)
-	except:
-		dict = None
+    :param dict_string: first line of the SQL file which contains the BigQueryOperator params 
+    :type dict_string: str 
 
-	return dict
-		
+    :return: A dictionary object representing the BigQueryOperator params	
+    :rtype: dict 
+    """
+    
+    new_dict = dict_string.replace('--','').replace('\n','')
+    
+    try: 
+        new = loads(new_dict)
+        return new 
+    except JSONDecodeError as e: 
+        raise e	
+
 # Overwrite any default arguments from the sql file
 def apply_defaults(default_dict, sql_dict):
-	"""Override key/value pairs in the DAG default settings
-			
-			Given a default dictionary and a second dictionary from the SQL file ovveride any default values.				
+	"""
+	Override key/value pairs in the DAG default settings given the parameters in the SQL file header.				
 
-						default_dict: The default dictionary for the DAG.	
-						sql_dict: The dictionary included in the top of the SQL file which may contain default values
-	returns: A dictionary object
+	:param default_dict: The default dictionary for the DAG.
+	:type default_dict: dict
+
+	:param sql_dict: The dictionary included in the SQL file header 
+	:type sql_dict: dict 
+
+	:return: The default dictionary 
+	:rtype: dict
 	"""	
 	replace_values = {key:value for (key,value) in sql_dict.items() if key in default_dict.keys()}
 
@@ -60,13 +64,22 @@ def apply_defaults(default_dict, sql_dict):
 	
 
 def create_dag(default_args, sql_dict, file_name, index):
-	"""Override key/value pairs in the DAG default settings
-			
-			Given a default dictionary and a second dictionary from the SQL file ovveride any default values.				
-	
-						default_dict: The default dictionary for the DAG.	
-						sql_dict: The dictionary included in the top of the SQL file which may contain default values
-	returns: A dictionary object
+	"""Create DAG given default value dictionary
+				
+	:param default_dict: The default dictionary for the DAG.
+	:type default_dict: dict
+
+	:param sql_dict: The dictionary included in the header of the SQL file
+	:type sql_dict: dict 
+
+	:param file_name: The file name of the SQL file
+	:type file_name: str 
+
+	:param index: A unique identifier/index per DAG 
+	:type index: int 
+
+	:return: Nothing
+	:rtype: None
 	"""
 	schedule_template = '{} {} * * *'
 	hour = 7
@@ -74,7 +87,7 @@ def create_dag(default_args, sql_dict, file_name, index):
 	interval = 2
 	hour = hour + index // 60 
 	minute = minute + ((index*interval)%60)
-  DEFAULT_VERSION = 1
+	DEFAULT_VERSION = 1
 	
 	default_arguments = apply_defaults(default_args, sql_dict)
 	
@@ -103,9 +116,7 @@ def create_dag(default_args, sql_dict, file_name, index):
 	if('destination_table' in sql_dict):
 		destination_table = sql_dict['destination_table']
 
-	checkQuery = '''
-					SELECT count(1) as Num FROM	[{}]
-					'''.format(destination_table)	
+	checkQuery = 'SELECT count(1) as Num FROM [{}]'.format(destination_table)
 
 	if('check_query' in sql_dict):
 		checkQuery = sql_dict['check_query']
@@ -124,16 +135,16 @@ def create_dag(default_args, sql_dict, file_name, index):
 					bigquery_conn_id = CONNECTION_ID,
 					task_id= dag_name + '_etl_check',
 					sql=checkQuery)
-		export_lineage_to_metadatadb = DagRunTaskInstanceRelationshipOperator(task_id='export_lineage_to_metadatadb', gcs_connect_id=CONNECTION_ID, gbq_connect_id=CONNECTION_ID)
 
-		etl_task >> check >> export_lineage_to_metadatadb
+		etl_task >> check 
 
 		globals()[dag_name] = dag
 
 def find_etls():
 	"""Iterate over the SQL file in the ETL folder and capture their settings dictionaries		
 
-	returns: A list of ETL dag names and their settings
+	:return: A list of ETL dag names and their settings
+	:rtype: list 
 	"""
 	from os import listdir
 	from os.path import isfile, join, abspath
@@ -146,7 +157,7 @@ def find_etls():
 			first_line = f.readline()
 			if(first_line.startswith('--')):
 				new_dictionary = clean_dict(first_line)
-				if not new_dictionary is None:
+				if new_dictionary:
 					etl_dags.append((new_dictionary,file))		
 	return etl_dags
 
@@ -155,6 +166,6 @@ def create_etl_dags():
 	etls_to_create = find_etls()
 	for etl_item in etls_to_create:
 		create_dag(default_args, etl_item[0], etl_item[1], index)
-		index=index+1		
+		index += 1
 
 create_etl_dags()
