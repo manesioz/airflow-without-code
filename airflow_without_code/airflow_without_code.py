@@ -20,6 +20,7 @@ default_args = {
 }
 
 CONNECTION_ID = 'DATABASE_CONN_ID'
+DEFAULT_VERSION = 1
 
 def clean_dict(dict_string):
     """Strips the leading dashes from the commented first line and converts it to a dictionary object
